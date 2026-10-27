@@ -1,4 +1,10 @@
-// ForgeVest v4 — linear token vesting (NOT INDEPENDENTLY AUDITED).
+// ForgeVest v5 — linear token vesting (NOT INDEPENDENTLY AUDITED).
+//
+// v5 (2026-10-27): `total` must be positive; the claimed token piece itself must have borrowing
+// disabled (not only the remainder); `salt != tokenId` is replaced by a salt check that always
+// holds (`OpInputCovenantId(tIn) == tokenId` is what ties the claim to the vesting's token; a
+// salt equal to the token id froze a v4 vesting). Vestings made before v5 keep their v4 script
+// (forge_vest_v4.sil).
 //
 // The script names the token it holds (`tokenId`, the token's covenant id) and carries a
 // per-vesting `salt`, so every vesting has its own script.
@@ -17,7 +23,9 @@
 // this script, together with a new lock coin, so later claims work the same way. The script is
 // stateless: the same hash holds the remainder after every claim.
 //
-// Works for any KCC-20 token: it reads the token through the standard's template.
+// `total` is what the schedule protects: lock exactly `total` tokens (ForgeVault always does).
+// Works for KCC-20 tokens of the reference template (template hash first in the state, owner
+// scheme 3 = p2sh). Not for KRON's own token format: lock those with ForgeLock dates.
 
 contract ForgeVest(
     pubkey beneficiary,
@@ -70,6 +78,7 @@ contract ForgeVest(
     // rest/rOut: the still-locked remainder and its output; cOut: the new lock coin.
     entry claim(sig s, int t, int tIn, TokenState rest, int rOut, int cOut) {
         require(checkSig(s, beneficiary));
+        require(total > 0);
         require(endDaa > startDaa);
         require(endDaa - startDaa <= MAX_SPAN);
         require(cliffDaa >= startDaa);
@@ -78,12 +87,16 @@ contract ForgeVest(
         require(tx.daa >= t);
         // the vesting's own token, nothing else: another token owned by this script cannot
         // stand in for it
-        require(salt != tokenId);
         require(OpInputCovenantId(tIn) == tokenId);
+        // `salt` only makes this vesting's script its own. This check always holds (a script
+        // cannot contain its own hash) and keeps the salt in the compiled script.
+        require(byte[](salt) != myScriptHash());
         TokenState tok = readInputStateWithTemplate(tIn, tplPrefixLen, tplSuffixLen, tokenTemplateHash);
         require(tok.tokTemplate == tokenTemplateHash);
         require(tok.ownerScheme == OWNER_P2SH);
         require(byte[](tok.owner) == myScriptHash());
+        // a piece that can still be borrowed is not a locked piece
+        require(tok.borrowScheme == BORROW_DISABLED);
         int locked = total - vestedAt(t);
         if (locked > 0) {
             require(rest.tokTemplate == tokenTemplateHash);
