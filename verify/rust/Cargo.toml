@@ -1,0 +1,15 @@
+[package]
+name = "forgevault-verify"
+version = "1.0.0"
+edition = "2024"
+description = "Compile the published ForgeVault contracts with a lock's arguments and check the result against the chain."
+publish = false
+
+[dependencies]
+# SilverScript v1.0.0: the compiler ForgeVault's contracts are built with
+silverscript-lang = { git = "https://github.com/kaspanet/silverscript", rev = "3ed973335b59269293564805cc2c58a14595ec03" }
+silverscript-abi = { git = "https://github.com/kaspanet/silverscript", rev = "3ed973335b59269293564805cc2c58a14595ec03" }
+blake2b_simd = "1.0"
+serde_json = "1.0"
+faster-hex = "0.10"
+anyhow = "1"

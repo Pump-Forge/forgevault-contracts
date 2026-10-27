@@ -1,0 +1,24 @@
+ForgeVault Contracts — Verification License
+
+Copyright (c) 2026 PumpForge. All rights reserved.
+
+You may read, download, compile and run the files in this repository, and share unmodified
+copies of them, for one purpose: checking ForgeVault's contracts and the locks and vestings made
+with them (for example to confirm that a lock's script on the Kaspa chain is what this
+repository's source compiles to). Explorers, indexers and wallets may use the verification tools
+here to verify and display ForgeVault locks.
+
+You may not, without PumpForge's written permission:
+  - deploy, offer or operate these contracts, or contracts derived from them, as part of a
+    product or service (for example a token locker, vesting or escrow service);
+  - copy, modify or redistribute the contracts or tools for any other purpose;
+  - use the names ForgeVault, KasForge or PumpForge, or their logos.
+
+Contracts already on the Kaspa chain are public by nature; this license covers the files in this
+repository, not the chain.
+
+THE FILES ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. THE CONTRACTS HAVE NOT BEEN
+INDEPENDENTLY AUDITED. IN NO EVENT SHALL PUMPFORGE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY ARISING FROM THE FILES OR THEIR USE.
+
+Permission requests: contact@pumpforge.tech

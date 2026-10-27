@@ -1,0 +1,100 @@
+// ForgeVest v4 — linear token vesting (NOT INDEPENDENTLY AUDITED).
+//
+// The script names the token it holds (`tokenId`, the token's covenant id) and carries a
+// per-vesting `salt`, so every vesting has its own script.
+//
+// A plain script (pay-to-script-hash), not a covenant, like ForgeLock. KCC-20 tokens are locked
+// by giving them the owner scheme p2sh with this script's hash as owner; they then only move in a
+// transaction that also spends a coin locked to this same script, and that coin only opens by
+// the rules below.
+//
+// Schedule: nothing before `cliffDaa`; from then on `total` unlocks in a straight line between
+// `startDaa` and `endDaa` (so at the cliff, everything accrued since the start unlocks at once);
+// everything is free at `endDaa`. A cliff equal to the start is plain linear vesting.
+//
+// claim: the beneficiary takes any amount that has unlocked by DAA score `t` (the transaction's
+// lock time proves `t` has been reached). Whatever is still locked at `t` must stay owned by
+// this script, together with a new lock coin, so later claims work the same way. The script is
+// stateless: the same hash holds the remainder after every claim.
+//
+// Works for any KCC-20 token: it reads the token through the standard's template.
+
+contract ForgeVest(
+    pubkey beneficiary,
+    int total,
+    int startDaa,
+    int cliffDaa,
+    int endDaa,
+    int tplPrefixLen,
+    int tplSuffixLen,
+    byte[32] tokenTemplateHash,
+    byte[32] tokenId,
+    byte[32] salt
+) {
+    struct TokenState {
+        byte[32] tokTemplate;
+        int amount;
+        byte[32] owner;
+        byte ownerScheme;
+        byte borrowScheme;
+        byte[32] borrowGuard;
+        byte[32] extension;
+    }
+
+    byte constant OWNER_P2SH = 0x03;
+    byte constant BORROW_DISABLED = 0x00;
+    // ~2000 days of DAA score: keeps the share arithmetic inside 64 bits
+    int constant MAX_SPAN = 1728000000;
+
+    // P2SH spk bytes: version(2) | OpBlake2b | OpData32 | hash(32) | OpEqual
+    function myScriptHash() : byte[] {
+        return(this.activeScriptPubKey.slice(4, 36));
+    }
+
+    // tokens unlocked by DAA score t (rounded down)
+    function vestedAt(int t) : int {
+        int v = 0;
+        if (t >= endDaa) {
+            v = total;
+        } else {
+            if (t >= cliffDaa) {
+                int span = endDaa - startDaa;
+                int done = t - startDaa;
+                v = (total / span) * done + ((total % span) * done) / span;
+            }
+        }
+        return(v);
+    }
+
+    // t: a DAA score the transaction's lock time has reached. tIn: our token input.
+    // rest/rOut: the still-locked remainder and its output; cOut: the new lock coin.
+    entry claim(sig s, int t, int tIn, TokenState rest, int rOut, int cOut) {
+        require(checkSig(s, beneficiary));
+        require(endDaa > startDaa);
+        require(endDaa - startDaa <= MAX_SPAN);
+        require(cliffDaa >= startDaa);
+        require(cliffDaa <= endDaa);
+        require(t >= startDaa);
+        require(tx.daa >= t);
+        // the vesting's own token, nothing else: another token owned by this script cannot
+        // stand in for it
+        require(salt != tokenId);
+        require(OpInputCovenantId(tIn) == tokenId);
+        TokenState tok = readInputStateWithTemplate(tIn, tplPrefixLen, tplSuffixLen, tokenTemplateHash);
+        require(tok.tokTemplate == tokenTemplateHash);
+        require(tok.ownerScheme == OWNER_P2SH);
+        require(byte[](tok.owner) == myScriptHash());
+        int locked = total - vestedAt(t);
+        if (locked > 0) {
+            require(rest.tokTemplate == tokenTemplateHash);
+            require(rest.ownerScheme == OWNER_P2SH);
+            require(byte[](rest.owner) == myScriptHash());
+            require(rest.borrowScheme == BORROW_DISABLED);
+            require(rest.amount >= locked);
+            require(OpOutputCovenantId(rOut) == OpInputCovenantId(tIn));
+            validateOutputStateWithInputTemplate(rOut, rest, tIn, tplPrefixLen, tplSuffixLen, tokenTemplateHash);
+            require(tx.outputs[cOut].scriptPubKey == this.activeScriptPubKey);
+            require(tx.outputs[cOut].value >= tx.inputs[this.activeInputIndex].value);
+        }
+    }
+}

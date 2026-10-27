@@ -1,0 +1,8 @@
+{
+  "name": "forgevault-check",
+  "private": true,
+  "type": "module",
+  "description": "Quick ForgeVault lock check without a compiler",
+  "scripts": { "check": "node check.mjs" },
+  "dependencies": { "@noble/hashes": "1.5.0" }
+}
