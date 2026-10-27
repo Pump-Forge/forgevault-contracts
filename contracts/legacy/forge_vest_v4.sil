@@ -1,24 +1,5 @@
-// ForgeVest v4 — linear token vesting (NOT INDEPENDENTLY AUDITED).
-// Vestings made before v5 (2026-10-27) keep this script; new vestings use forge_vest.sil (v5).
-//
-// The script names the token it holds (`tokenId`, the token's covenant id) and carries a
-// per-vesting `salt`, so every vesting has its own script.
-//
-// A plain script (pay-to-script-hash), not a covenant, like ForgeLock. KCC-20 tokens are locked
-// by giving them the owner scheme p2sh with this script's hash as owner; they then only move in a
-// transaction that also spends a coin locked to this same script, and that coin only opens by
-// the rules below.
-//
-// Schedule: nothing before `cliffDaa`; from then on `total` unlocks in a straight line between
-// `startDaa` and `endDaa` (so at the cliff, everything accrued since the start unlocks at once);
-// everything is free at `endDaa`. A cliff equal to the start is plain linear vesting.
-//
-// claim: the beneficiary takes any amount that has unlocked by DAA score `t` (the transaction's
-// lock time proves `t` has been reached). Whatever is still locked at `t` must stay owned by
-// this script, together with a new lock coin, so later claims work the same way. The script is
-// stateless: the same hash holds the remainder after every claim.
-//
-// Works for any KCC-20 token: it reads the token through the standard's template.
+// ForgeVest v4 — an earlier version (NOT INDEPENDENTLY AUDITED), kept so locks made with it before
+// 27 Oct 2026 can still be checked. New locks use ../forge_vest.sil (ForgeVest v6).
 
 contract ForgeVest(
     pubkey beneficiary,

@@ -1,18 +1,23 @@
-// ForgeLock v3 — token time-lock (NOT INDEPENDENTLY AUDITED).
+// ForgeLock v4 — token time-lock (NOT INDEPENDENTLY AUDITED).
 //
 // A plain script (pay-to-script-hash), not a covenant. KCC-20 tokens are locked by giving them
-// the owner scheme p2sh/v1 with this script's hash as owner: the token then only moves in a
-// transaction that also spends a coin locked to this same script, and that coin can only be
-// spent by the beneficiary's signature once the DAA score reaches `unlockDaa`.
+// the owner scheme p2sh with this script's hash as owner (KRON-format tokens: KRON's script owner
+// type): the token then only moves in a transaction that also spends a coin locked to this same
+// script, and that coin can only be spent by the beneficiary's signature once the DAA score
+// reaches `unlockDaa`. Only a SIGHASH_ALL signature is accepted, so a signature always covers the
+// whole transaction and cannot be reused for one with other outputs.
 //
 // Works for any KCC-20 token, from any launchpad: it only uses the standard's p2sh owner scheme.
-// KRON-format tokens are held the same way, with KRON's script owner type.
 // Vesting is several locks with different unlock dates. Nobody (not the beneficiary, not
 // PumpForge) can move the tokens earlier.
 
 contract ForgeLock(pubkey beneficiary, int unlockDaa) {
     entry unlock(sig s) {
         require(tx.daa >= unlockDaa);
+        // a 64-byte Schnorr signature and its sighash type: SIGHASH_ALL (0x01) only
+        byte[] sb = byte[](s);
+        require(sb.length == 65);
+        require(sb.slice(64, 65) == byte[](0x01));
         require(checkSig(s, beneficiary));
     }
 }

@@ -11,8 +11,12 @@ import { blake2b } from '@noble/hashes/blake2b';
 import fs from 'node:fs';
 
 const FEED = 'https://vault.pumpforge.tech/api/v1/locked';
-// ForgeLock v3 = PRE ‖ push(unlockDaa) ‖ MID ‖ beneficiary(32) ‖ POST
-const PRE = '76043f64dcc7876375768201419d75', MID = '7600050088526a74a569b07620', POST = 'ac697551676a68';
+// ForgeLock = PRE ‖ push(unlockDaa) ‖ MID ‖ beneficiary(32) ‖ POST (v4 also checks the sighash byte)
+const PRE = '76043f64dcc7876375768201419d75';
+const LAYOUT = {
+  'ForgeLock v4': { MID: '7600050088526a74a569b07676827c75519601419c6976014001417f010187697820', POST: 'ac69757551676a68' },
+  'ForgeLock v3': { MID: '7600050088526a74a569b07620', POST: 'ac697551676a68' },
+};
 
 const hex = (u8) => Buffer.from(u8).toString('hex');
 const hash = (scriptHex) => hex(blake2b(Buffer.from(scriptHex, 'hex'), { dkLen: 32 }));
@@ -35,7 +39,7 @@ function readInt(h) {
   if ((v >= 1n && v <= 16n) || v === -1n) return null;
   return [v, 2 + op * 2];
 }
-function readForgeLock(s) {
+function readForgeLock(s, { MID, POST }) {
   if (!s.startsWith(PRE) || !s.endsWith(POST)) return null;
   const n = readInt(s.slice(PRE.length));
   if (!n) return null;
@@ -84,6 +88,10 @@ const feed = args[0] === '--file'
   ? JSON.parse(fs.readFileSync(args[1], 'utf8'))
   : await (await fetch(FEED + (args[0] ? '?token=' + encodeURIComponent(args[0]) : ''))).json();
 let bad = 0, partial = 0;
+if (!(feed.locks || []).length) {
+  console.log('The feed lists no locks: nothing was checked. (An empty feed does not mean a token is locked.)');
+  process.exit(0);
+}
 for (const l of feed.locks || []) {
   const problems = [];
   let what = '', full = false;
@@ -94,18 +102,19 @@ for (const l of feed.locks || []) {
   if (!/^[0-9a-f]+$/.test(s) || s.length % 2) problems.push('no contract.redeemScript');
   else {
     const h = hash(s);
-    if (h !== l.holder?.hash) problems.push('BLAKE2b-256(redeemScript) is not holder.hash');
+    if (h !== String(l.holder?.hash || '').toLowerCase()) problems.push('BLAKE2b-256(redeemScript) is not holder.hash');
     if (address(prefix, 8, h) !== holder) problems.push('holder.address is not the address of the script hash');
   }
-  if (!problems.length && c.name === 'ForgeLock v3') {
-    const f = readForgeLock(s);
+  if (!(BigInt(/^\d+$/.test(String(l.amount)) ? String(l.amount) : '0') > 0n)) problems.push(`the feed's amount is ${l.amount}: an open lock holds at least one token`);
+  if (!problems.length && LAYOUT[c.name]) {
+    const f = readForgeLock(s, LAYOUT[c.name]);
     const arg = (n) => (c.args || []).find((a) => a.name === n)?.value;
-    if (!f) problems.push('not the ForgeLock v3 layout');
+    if (!f) problems.push(`not the ${c.name} layout`);
     else {
       const ben = address(prefix, 0, f.beneficiary);
-      if (f.beneficiary !== arg('beneficiary') || ben !== l.beneficiary) problems.push('the script releases to another key than the feed says');
+      if (f.beneficiary !== String(arg('beneficiary') || '').toLowerCase() || ben !== l.beneficiary) problems.push('the script releases to another key than the feed says');
       if (String(f.unlockDaa) !== String(arg('unlockDaa')) || String(f.unlockDaa) !== String(l.unlockDaa)) problems.push('the script unlocks at another DAA score than the feed says');
-      what = `${l.amount} tokens unlock to ${ben} at DAA ${f.unlockDaa}`;
+      what = `${c.name}: unlocks to ${ben} at DAA ${f.unlockDaa}\n            feed only (not checked): ${l.amount} tokens of ${l.token}`;
       full = true;
     }
   } else if (!problems.length) what = `${c.name || 'unknown contract'}: only the hash is checked here; rebuild it from source with ../rust`;

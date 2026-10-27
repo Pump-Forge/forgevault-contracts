@@ -1,10 +1,4 @@
-// ForgeVest v5 — linear token vesting (NOT INDEPENDENTLY AUDITED).
-//
-// v5 (2026-10-27): `total` must be positive; the claimed token piece itself must have borrowing
-// disabled (not only the remainder); `salt != tokenId` is replaced by a salt check that always
-// holds (`OpInputCovenantId(tIn) == tokenId` is what ties the claim to the vesting's token; a
-// salt equal to the token id froze a v4 vesting). Vestings made before v5 keep their v4 script
-// (forge_vest_v4.sil).
+// ForgeVest v6 — linear token vesting (NOT INDEPENDENTLY AUDITED).
 //
 // The script names the token it holds (`tokenId`, the token's covenant id) and carries a
 // per-vesting `salt`, so every vesting has its own script.
@@ -12,16 +6,19 @@
 // A plain script (pay-to-script-hash), not a covenant, like ForgeLock. KCC-20 tokens are locked
 // by giving them the owner scheme p2sh with this script's hash as owner; they then only move in a
 // transaction that also spends a coin locked to this same script, and that coin only opens by
-// the rules below.
+// the rules below. Only a SIGHASH_ALL signature is accepted, so a signature always covers the
+// whole transaction, including where the unlocked tokens go.
 //
 // Schedule: nothing before `cliffDaa`; from then on `total` unlocks in a straight line between
 // `startDaa` and `endDaa` (so at the cliff, everything accrued since the start unlocks at once);
-// everything is free at `endDaa`. A cliff equal to the start is plain linear vesting.
+// everything is free at `endDaa`. A cliff equal to the start is plain linear vesting. The span
+// `endDaa - startDaa` must be at most MAX_SPAN (about 2000 days); ForgeVault never builds a
+// longer one and the Rust checker fails it.
 //
 // claim: the beneficiary takes any amount that has unlocked by DAA score `t` (the transaction's
 // lock time proves `t` has been reached). Whatever is still locked at `t` must stay owned by
-// this script, together with a new lock coin, so later claims work the same way. The script is
-// stateless: the same hash holds the remainder after every claim.
+// this script, with borrowing disabled, together with a new lock coin, so later claims work the
+// same way. The script is stateless: the same hash holds the remainder after every claim.
 //
 // `total` is what the schedule protects: lock exactly `total` tokens (ForgeVault always does).
 // Works for KCC-20 tokens of the reference template (template hash first in the state, owner
@@ -77,8 +74,13 @@ contract ForgeVest(
     // t: a DAA score the transaction's lock time has reached. tIn: our token input.
     // rest/rOut: the still-locked remainder and its output; cOut: the new lock coin.
     entry claim(sig s, int t, int tIn, TokenState rest, int rOut, int cOut) {
+        // a 64-byte Schnorr signature and its sighash type: SIGHASH_ALL (0x01) only
+        byte[] sb = byte[](s);
+        require(sb.length == 65);
+        require(sb.slice(64, 65) == byte[](0x01));
         require(checkSig(s, beneficiary));
         require(total > 0);
+        require(startDaa >= 0);
         require(endDaa > startDaa);
         require(endDaa - startDaa <= MAX_SPAN);
         require(cliffDaa >= startDaa);

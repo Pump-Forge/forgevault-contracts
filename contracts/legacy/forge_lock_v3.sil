@@ -1,0 +1,9 @@
+// ForgeLock v3 — an earlier version (NOT INDEPENDENTLY AUDITED), kept so locks made with it before
+// 27 Oct 2026 can still be checked. New locks use ../forge_lock.sil (ForgeLock v4).
+
+contract ForgeLock(pubkey beneficiary, int unlockDaa) {
+    entry unlock(sig s) {
+        require(tx.daa >= unlockDaa);
+        require(checkSig(s, beneficiary));
+    }
+}

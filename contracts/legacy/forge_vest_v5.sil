@@ -1,0 +1,87 @@
+// ForgeVest v5 — an earlier version (NOT INDEPENDENTLY AUDITED), kept so locks made with it before
+// 27 Oct 2026 can still be checked. New locks use ../forge_vest.sil (ForgeVest v6).
+
+contract ForgeVest(
+    pubkey beneficiary,
+    int total,
+    int startDaa,
+    int cliffDaa,
+    int endDaa,
+    int tplPrefixLen,
+    int tplSuffixLen,
+    byte[32] tokenTemplateHash,
+    byte[32] tokenId,
+    byte[32] salt
+) {
+    struct TokenState {
+        byte[32] tokTemplate;
+        int amount;
+        byte[32] owner;
+        byte ownerScheme;
+        byte borrowScheme;
+        byte[32] borrowGuard;
+        byte[32] extension;
+    }
+
+    byte constant OWNER_P2SH = 0x03;
+    byte constant BORROW_DISABLED = 0x00;
+    // ~2000 days of DAA score: keeps the share arithmetic inside 64 bits
+    int constant MAX_SPAN = 1728000000;
+
+    // P2SH spk bytes: version(2) | OpBlake2b | OpData32 | hash(32) | OpEqual
+    function myScriptHash() : byte[] {
+        return(this.activeScriptPubKey.slice(4, 36));
+    }
+
+    // tokens unlocked by DAA score t (rounded down)
+    function vestedAt(int t) : int {
+        int v = 0;
+        if (t >= endDaa) {
+            v = total;
+        } else {
+            if (t >= cliffDaa) {
+                int span = endDaa - startDaa;
+                int done = t - startDaa;
+                v = (total / span) * done + ((total % span) * done) / span;
+            }
+        }
+        return(v);
+    }
+
+    // t: a DAA score the transaction's lock time has reached. tIn: our token input.
+    // rest/rOut: the still-locked remainder and its output; cOut: the new lock coin.
+    entry claim(sig s, int t, int tIn, TokenState rest, int rOut, int cOut) {
+        require(checkSig(s, beneficiary));
+        require(total > 0);
+        require(endDaa > startDaa);
+        require(endDaa - startDaa <= MAX_SPAN);
+        require(cliffDaa >= startDaa);
+        require(cliffDaa <= endDaa);
+        require(t >= startDaa);
+        require(tx.daa >= t);
+        // the vesting's own token, nothing else: another token owned by this script cannot
+        // stand in for it
+        require(OpInputCovenantId(tIn) == tokenId);
+        // `salt` only makes this vesting's script its own. This check always holds (a script
+        // cannot contain its own hash) and keeps the salt in the compiled script.
+        require(byte[](salt) != myScriptHash());
+        TokenState tok = readInputStateWithTemplate(tIn, tplPrefixLen, tplSuffixLen, tokenTemplateHash);
+        require(tok.tokTemplate == tokenTemplateHash);
+        require(tok.ownerScheme == OWNER_P2SH);
+        require(byte[](tok.owner) == myScriptHash());
+        // a piece that can still be borrowed is not a locked piece
+        require(tok.borrowScheme == BORROW_DISABLED);
+        int locked = total - vestedAt(t);
+        if (locked > 0) {
+            require(rest.tokTemplate == tokenTemplateHash);
+            require(rest.ownerScheme == OWNER_P2SH);
+            require(byte[](rest.owner) == myScriptHash());
+            require(rest.borrowScheme == BORROW_DISABLED);
+            require(rest.amount >= locked);
+            require(OpOutputCovenantId(rOut) == OpInputCovenantId(tIn));
+            validateOutputStateWithInputTemplate(rOut, rest, tIn, tplPrefixLen, tplSuffixLen, tokenTemplateHash);
+            require(tx.outputs[cOut].scriptPubKey == this.activeScriptPubKey);
+            require(tx.outputs[cOut].value >= tx.inputs[this.activeInputIndex].value);
+        }
+    }
+}
