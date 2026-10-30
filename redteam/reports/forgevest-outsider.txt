@@ -1,0 +1,23 @@
+kaspa-redteam v0.4.9  forgevest-outsider.json  (library v0.3.2, covenant target)
+ 0 attacks run   0 survived   12 skipped   0 FINDINGS   0.0s
+
+  SIG-01  skipped   Spend a signed path with an invalid signature    no explored path this attack applies to
+  SIG-02  skipped   Sign with the attacker's own key                 no explored path this attack applies to
+  SEC-01  skipped   Front-run a revealed secret or reading           no explored path this attack applies to
+  ST-01   skipped   Rewrite the recorded owner of the next state     no explored permissionless path carries a key in its next state
+  OUT-01  skipped   Correct value, attacker's script                 no explored path this attack applies to
+  ORC-04  skipped   Reading signed by the attacker's own key         no explored path this attack applies to
+  OUT-02  skipped   Correct script, reduced value                    no explored path this attack applies to
+  OUT-03  skipped   Valid output 0, skim a later output              no explored permissionless path creates more than one output
+  OUT-04  skipped   Keep what the fixed payouts leave over           no explored permissionless path leaves value unclaimed
+  FEE-01  skipped   Route value to the miner fee                     no explored path this attack applies to
+  IN-01   skipped   Two covenant coins, one shared set of outputs    no explored path this attack applies to
+  IN-02   skipped   Attacker's coin at input 0, covenant moved behind it no explored path this attack applies to
+
+Spend map (who can spend each path, as found by search)
+  claim (half way: part, the rest stays vesting) (imported) signed by an outside key; from 3 inputs worth 6.2 KAS pays 1 KAS to script aa204078743bab49.., 1 KAS to script aa20f6d7abad2de7.., 0.2 KAS to script aa203356cc068c2d.., 3.99886969 KAS to script 20c87dffb27d4369.. [imported]
+  claim (at the end: the rest) (imported) signed by an outside key; from 3 inputs worth 6.2 KAS pays 1 KAS to script aa204078743bab49.., 5.19982075 KAS to script 20c87dffb27d4369.. [imported]
+  claim (just after the cliff) (imported) signed by an outside key; from 3 inputs worth 6.2 KAS pays 1 KAS to script aa207c022efcdade.., 1 KAS to script aa20825dcdc2e1cb.., 0.2 KAS to script aa203356cc068c2d.., 3.99886969 KAS to script 20c87dffb27d4369.. [imported]
+
+note: 3 baseline transaction(s) imported and attacked as given
+note: judge: rusty-kaspa consensus validator 2.1.0 in process (mempool relay policy not applied)

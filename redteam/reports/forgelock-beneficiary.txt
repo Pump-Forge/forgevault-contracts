@@ -1,0 +1,46 @@
+kaspa-redteam v0.4.9  forgelock-beneficiary.json  (library v0.3.2, covenant target)
+ 5 attacks run   3 survived   7 skipped   4 FINDINGS   0.0s
+
+  SIG-01  skipped   Spend a signed path with an invalid signature    no explored path this attack applies to
+  SIG-02  skipped   Sign with the attacker's own key                 no explored path this attack applies to
+  SEC-01  skipped   Front-run a revealed secret or reading           no explored path this attack applies to
+  ST-01   skipped   Rewrite the recorded owner of the next state     no explored permissionless path carries a key in its next state
+  OUT-01  survived  Correct value, attacker's script                 4 attempts rejected
+  ORC-04  skipped   Reading signed by the attacker's own key         no explored path this attack applies to
+  OUT-02  FOUND     Correct script, reduced value                    2 of 2 attempts accepted
+  OUT-03  skipped   Valid output 0, skim a later output              no explored path this attack applies to
+  OUT-04  skipped   Keep what the fixed payouts leave over           no explored permissionless path leaves value unclaimed
+  FEE-01  FOUND     Route value to the miner fee                     2 of 2 attempts accepted
+  IN-01   survived  Two covenant coins, one shared set of outputs    4 attempts rejected
+  IN-02   survived  Attacker's coin at input 0, covenant moved behind it 2 attempts rejected
+
+[HIGH] OUT-02 Correct script, reduced value
+  Path `unlock (tranche 1, on its date) (imported)`: output 0 keeps its recipient (script aa2043fcf8ce892a..) but its value is not checked: it was paid 0.1 KAS instead of 1 KAS and the attacker took the 0.9 KAS difference. Note: here the attacker signs with the baseline's listed key, so this is what a user of the covenant holding that key (a buyer, a seller) can do; an outsider cannot.
+  In practice: The recipient is checked but not the amount. Whoever spends pays the right person a token sompi and keeps the rest.
+  Repro: findings/forgelock-beneficiary/OUT-02.json   replay: kaspa-redteam replay findings/forgelock-beneficiary/OUT-02.json
+  Fix pattern: require(tx.outputs[0].value >= expectedAmount);
+
+[HIGH] OUT-02 Correct script, reduced value
+  Path `unlock (tranche 2, after its date) (imported)`: output 0 keeps its recipient (script aa20a30a9d007713..) but its value is not checked: it was paid 0.1 KAS instead of 1 KAS and the attacker took the 0.9 KAS difference. Note: here the attacker signs with the baseline's listed key, so this is what a user of the covenant holding that key (a buyer, a seller) can do; an outsider cannot.
+  In practice: The recipient is checked but not the amount. Whoever spends pays the right person a token sompi and keeps the rest.
+  Repro: findings/forgelock-beneficiary/OUT-02-2.json   replay: kaspa-redteam replay findings/forgelock-beneficiary/OUT-02-2.json
+  Fix pattern: require(tx.outputs[0].value >= expectedAmount);
+
+[MED]  FEE-01 Route value to the miner fee
+  Path `unlock (tranche 1, on its date) (imported)`: anyone can trigger this path with outputs worth half of what was intended; 0.5 KAS went to the miner as fee. A miner can do this to their own block and keep it. Note: here the attacker signs with the baseline's listed key, so this is what a user of the covenant holding that key (a buyer, a seller) can do; an outsider cannot.
+  In practice: Anyone who spends the coin can shrink what the outputs carry and let the rest become the fee. A miner does it in their own block and keeps the difference; anyone else can do it out of spite.
+  Repro: findings/forgelock-beneficiary/FEE-01.json   replay: kaspa-redteam replay findings/forgelock-beneficiary/FEE-01.json
+  Fix pattern: bound the fee: require(tx.outputs[0].value >= tx.inputs[this.activeInputIndex].value - MAX_FEE);
+
+[MED]  FEE-01 Route value to the miner fee
+  Path `unlock (tranche 2, after its date) (imported)`: anyone can trigger this path with outputs worth half of what was intended; 0.5 KAS went to the miner as fee. A miner can do this to their own block and keep it. Note: here the attacker signs with the baseline's listed key, so this is what a user of the covenant holding that key (a buyer, a seller) can do; an outsider cannot.
+  In practice: Anyone who spends the coin can shrink what the outputs carry and let the rest become the fee. A miner does it in their own block and keeps the difference; anyone else can do it out of spite.
+  Repro: findings/forgelock-beneficiary/FEE-01-2.json   replay: kaspa-redteam replay findings/forgelock-beneficiary/FEE-01-2.json
+  Fix pattern: bound the fee: require(tx.outputs[0].value >= tx.inputs[this.activeInputIndex].value - MAX_FEE);
+
+Spend map (who can spend each path, as found by search)
+  unlock (tranche 1, on its date) (imported) a user holding the baseline's listed key (the tool re-signs); from 3 inputs worth 6.2 KAS pays 1 KAS to script aa2043fcf8ce892a.., 5.19982075 KAS to attacker [imported]
+  unlock (tranche 2, after its date) (imported) a user holding the baseline's listed key (the tool re-signs); from 3 inputs worth 6.2 KAS pays 1 KAS to script aa20a30a9d007713.., 5.19982075 KAS to attacker [imported]
+
+note: 2 baseline transaction(s) imported and attacked as given
+note: judge: rusty-kaspa consensus validator 2.1.0 in process (mempool relay policy not applied)

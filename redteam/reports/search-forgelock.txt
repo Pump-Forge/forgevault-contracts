@@ -1,0 +1,20 @@
+kaspa-redteam v0.4.9  forge_lock.sil  (library v0.3.2, covenant target)
+ 2 attacks run   2 survived   10 skipped   0 FINDINGS   0.0s
+
+  SIG-01  survived  Spend a signed path with an invalid signature    2 attempts rejected
+  SIG-02  survived  Sign with the attacker's own key                 2 attempts rejected
+  SEC-01  skipped   Front-run a revealed secret or reading           no explored path this attack applies to
+  ST-01   skipped   Rewrite the recorded owner of the next state     no explored permissionless path carries a key in its next state
+  OUT-01  skipped   Correct value, attacker's script                 no explored path this attack applies to
+  ORC-04  skipped   Reading signed by the attacker's own key         no explored path this attack applies to
+  OUT-02  skipped   Correct script, reduced value                    no explored path this attack applies to
+  OUT-03  skipped   Valid output 0, skim a later output              no explored permissionless path creates more than one output
+  OUT-04  skipped   Keep what the fixed payouts leave over           no explored permissionless path leaves value unclaimed
+  FEE-01  skipped   Route value to the miner fee                     no explored path this attack applies to
+  IN-01   skipped   Two covenant coins, one shared set of outputs    no explored path this attack applies to
+  IN-02   skipped   Attacker's coin at input 0, covenant moved behind it no explored path this attack applies to
+
+Spend map (who can spend each path, as found by search)
+  unlock               signed by party; from a 10 KAS coin pays 9.9999 KAS to party; needs lock_time >= 100 (earliest accepted 100)
+
+note: judge: rusty-kaspa consensus validator 2.1.0 in process (mempool relay policy not applied)
