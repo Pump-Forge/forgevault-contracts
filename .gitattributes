@@ -1,0 +1,8 @@
+# GitHub shows SilverScript (.sil) and Argent (.ag) sources with syntax colours
+*.sil linguist-language=JavaScript
+*.ag linguist-language=Rust
+
+# LF line endings for contract sources on every checkout (Windows included), so the
+# published sources stay byte-identical to what the builds and checkers hash
+*.sil text eol=lf
+*.ag text eol=lf
